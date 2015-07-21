@@ -1,7 +1,8 @@
 package com.example.dbflute.scala.handson
 
 import com.atomikos.icatch.imp.SysExceptionTestJUnit
-import com.example.dbflute.scala.dbflute.allcommon.{ScrLikeSearchOption, DBFlutist}
+import com.example.dbflute.scala.dbflute.allcommon.{CDef, ScrLikeSearchOption, DBFlutist}
+import com.example.dbflute.scala.dbflute.exentity.Member
 import com.example.dbflute.scala.unit.UnitContainerFunSuite
 import org.joda.time.LocalDate
 import org.junit.runner.RunWith
@@ -85,6 +86,41 @@ class HandsOn03Test extends UnitContainerFunSuite {
           markHere(mark)
         })
       })
+    })
+
+    //
+    // 3-4
+    // 会員ステータスの表示順カラムで会員を並べて検索
+    // 会員ステータスの "表示順" カラムの昇順で並べる
+    // 会員ステータスのデータ自体は要らない
+    // その次には、会員の会員IDの降順で並べる
+    // 会員ステータスのデータが取れていないことをアサート
+    // 会員が会員ステータスごとに固まって並んでいることをアサート
+    //
+    test_3("3_4", mark => {
+      val members: List[Member] = DBFlutist.memberBhv.selectList(cb => {
+        cb.query.queryMemberStatus.addOrderBy_DisplayOrder_Asc
+        cb.query.addOrderBy_MemberId_Desc
+      })
+
+      // 会員ステータスのデータが取れていないことをアサート
+      members.foreach(member => {
+        assertEquals(None, member.memberStatus)
+        markHere(mark)
+      })
+
+      // 会員が会員ステータスごとに固まって並んでいることをアサート
+      def checkBlock(src: List[Member], statusCodes: List[CDef.MemberStatus] = List()): Boolean = (src, statusCodes) match {
+        case (srcHead :: srcInit, Nil) => checkBlock(srcInit, srcHead.memberStatusCode :: statusCodes)
+        case (srcHead :: srcInit, statusCodesHead :: statusCodesInit) if srcHead.memberStatusCode == statusCodesHead => checkBlock(srcInit, statusCodes)
+        case (srcHead :: srcInit, statusCodesHead :: statusCodesInit) => statusCodesInit.contains(srcHead.memberStatusCode) match {
+          case false => checkBlock(srcInit, srcHead.memberStatusCode :: statusCodes)
+          case true  => false
+        }
+        case (Nil, codes) => true
+      }
+
+      assert(checkBlock(members))
     })
   }
 }
